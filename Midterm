@@ -1,0 +1,553 @@
+//Task 1
+//
+import Foundation
+import Combine
+
+enum EquipmentType: String {
+    case laptop = "Laptop"
+    case tablet = "Tablet"
+    case digitalCamera = "Digital Camera"
+}
+class Equipment: ObservableObject, Identifiable {
+
+    let id: String
+    let purchaseYear: Int
+    let type: EquipmentType
+
+    @Published var name: String
+    @Published var manufacturer: String
+    @Published var isAvailable = true
+
+    init(id: String, name: String, manufacturer: String,
+         purchaseYear: Int, type: EquipmentType) {
+
+        self.id = id
+        self.name = name
+        self.manufacturer = manufacturer
+        self.purchaseYear = purchaseYear
+        self.type = type
+    }
+}
+
+//
+import Foundation
+import Combine
+
+enum EquipmentType: String, CaseIterable {
+    case laptop = "Laptop"
+    case tablet = "Tablet"
+    case digitalCamera = "Digital Camera"
+}
+
+class Equipment: ObservableObject, Identifiable {
+    let id: String
+    let purchaseYear: Int
+    let type: EquipmentType
+    @Published var name: String
+    @Published var manufacturer: String
+    @Published var isAvailable = true
+
+    init(id: String, name: String, manufacturer: String,
+         purchaseYear: Int, type: EquipmentType) {
+        self.id = id
+        self.name = name
+        self.manufacturer = manufacturer
+        self.purchaseYear = purchaseYear
+        self.type = type
+    }
+}
+
+//
+import Foundation
+import Combine
+
+class Tablet: Equipment {
+    @Published var screenSize: String
+    @Published var batteryCapacity: String
+    @Published var supportsStylus: Bool
+
+    init(id: String, name: String, manufacturer: String,
+         purchaseYear: Int, screenSize: String,
+         batteryCapacity: String, supportsStylus: Bool) {
+
+        self.screenSize = screenSize
+        self.batteryCapacity = batteryCapacity
+        self.supportsStylus = supportsStylus
+
+        super.init(id: id, name: name, manufacturer: manufacturer,
+                   purchaseYear: purchaseYear, type: .tablet)
+    }
+}
+
+//
+import Foundation
+import Combine
+
+class DigitalCamera: Equipment {
+    @Published var sensorResolution: String
+    @Published var cameraType: String
+    @Published var videoResolution: String
+
+    init(id: String, name: String, manufacturer: String,
+         purchaseYear: Int, sensorResolution: String,
+         cameraType: String, videoResolution: String) {
+
+        self.sensorResolution = sensorResolution
+        self.cameraType = cameraType
+        self.videoResolution = videoResolution
+
+        super.init(id: id, name: name, manufacturer: manufacturer,
+                   purchaseYear: purchaseYear, type: .digitalCamera)
+    }
+}
+
+//
+import Foundation
+
+struct BorrowRecord: Identifiable {
+    let id = UUID()
+    let equipmentID: String
+    let borrowerName: String
+    let borrowDate = Date()
+
+    var returnDate: Date?
+    var isReturned = false
+
+    init(equipmentID: String, borrowerName: String) {
+        self.equipmentID = equipmentID
+        self.borrowerName = borrowerName
+        self.returnDate = nil
+    }
+}
+
+//Task 2
+//
+import SwiftUI
+struct EquipmentListView: View {
+    @ObservedObject var manager: EquipmentManager
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(manager.equipments) { equipment in
+                    NavigationLink {
+                        EquipmentDetailView(equipment: equipment, manager: manager)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(equipment.name).font(.headline)
+                                Text(equipment.id).font(.caption)
+                                Text(equipment.type.rawValue)
+                            }
+
+                            Spacer()
+
+                            Text(equipment.isAvailable ? "Available" : "Borrowed")
+                                .foregroundColor(equipment.isAvailable ? .green : .red)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Library Equipment")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink {
+                        EquipmentManagementView(manager: manager)
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                }
+            }
+        }
+    }
+}
+
+//
+import SwiftUI
+struct EquipmentDetailView: View {
+    @ObservedObject var equipment: Equipment
+    @ObservedObject var manager: EquipmentManager
+
+    @State private var borrowerName = ""
+    @State private var message = ""
+    @State private var showAlert = false
+
+    var body: some View {
+        Form {
+            Section(header: Text("Equipment Information")) {
+                Text("ID: \(equipment.id)")
+                Text("Name: \(equipment.name)")
+                Text("Manufacturer: \(equipment.manufacturer)")
+                Text("Purchase Year: \(equipment.purchaseYear)")
+                Text("Type: \(equipment.type.rawValue)")
+                Text("Status: \(equipment.isAvailable ? "Available" : "Borrowed")")
+            }
+
+            Section(header: Text("Specific Information")) {
+                if let laptop = equipment as? Laptop {
+                    Text("Processor: \(laptop.processor)")
+                    Text("RAM: \(laptop.ram)")
+                    Text("Storage: \(laptop.storage)")
+                } else if let tablet = equipment as? Tablet {
+                    Text("Screen: \(tablet.screenSize)")
+                    Text("Battery: \(tablet.batteryCapacity)")
+                    Text("Stylus: \(tablet.supportsStylus ? "Yes" : "No")")
+                } else if let camera = equipment as? DigitalCamera {
+                    Text("Resolution: \(camera.sensorResolution)")
+                    Text("Camera Type: \(camera.cameraType)")
+                    Text("Video: \(camera.videoResolution)")
+                }
+            }
+
+            Section(header: Text("Borrowing")) {
+                if equipment.isAvailable {
+                    TextField("Borrower Name", text: $borrowerName)
+
+                    Button("Borrow Equipment") {
+                        let result = manager.borrowEquipment(
+                            equipmentID: equipment.id,
+                            borrowerName: borrowerName
+                        )
+
+                        message = result ?? "Borrowing successful!"
+                        if result == nil { borrowerName = "" }
+                        showAlert = true
+                    }
+                } else {
+                    Button("Return Equipment") {
+                        let result = manager.returnEquipment(
+                            equipmentID: equipment.id
+                        )
+
+                        message = result ?? "Return successful!"
+                        showAlert = true
+                    }
+                }
+            }
+
+            Section {
+                NavigationLink("Edit Equipment") {
+                    EquipmentManagementView(
+                        manager: manager,
+                        equipment: equipment
+                    )
+                }
+            }
+        }
+        .navigationTitle("Equipment Details")
+        .alert("Notification", isPresented: $showAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(message)
+        }
+    }
+}
+
+//
+import SwiftUI
+struct EquipmentManagementView: View {
+    @ObservedObject var manager: EquipmentManager
+    @Environment(\.dismiss) var dismiss
+
+    let equipment: Equipment?
+
+@State private var id = "", name = "", manufacturer = "", purchaseYear = ""
+@State private var selectedType: EquipmentType = .laptop
+
+@State private var processor = "", ram = "", storage = ""
+@State private var screenSize = "", batteryCapacity = ""
+@State private var supportsStylus = false
+
+@State private var sensorResolution = "", cameraType = "", videoResolution = ""
+
+@State private var message = "", showAlert = false, shouldDismiss = false
+
+    init(manager: EquipmentManager, equipment: Equipment? = nil) {
+        self.manager = manager
+        self.equipment = equipment
+
+        _id = State(initialValue: equipment?.id ?? "")
+        _name = State(initialValue: equipment?.name ?? "")
+        _manufacturer = State(initialValue: equipment?.manufacturer ?? "")
+        _purchaseYear = State(initialValue: equipment.map { String($0.purchaseYear) } ?? "")
+        _selectedType = State(initialValue: equipment?.type ?? .laptop)
+
+        if let laptop = equipment as? Laptop {
+            _processor = State(initialValue: laptop.processor)
+            _ram = State(initialValue: laptop.ram)
+            _storage = State(initialValue: laptop.storage)
+        } else if let tablet = equipment as? Tablet {
+            _screenSize = State(initialValue: tablet.screenSize)
+            _batteryCapacity = State(initialValue: tablet.batteryCapacity)
+            _supportsStylus = State(initialValue: tablet.supportsStylus)
+        } else if let camera = equipment as? DigitalCamera {
+            _sensorResolution = State(initialValue: camera.sensorResolution)
+            _cameraType = State(initialValue: camera.cameraType)
+            _videoResolution = State(initialValue: camera.videoResolution)
+        }
+    }
+
+    var body: some View {
+        Form {
+            Section(header: Text("General Information")) {
+                TextField("Equipment ID", text: $id)
+                    .disabled(equipment != nil)
+
+                TextField("Equipment Name", text: $name)
+                TextField("Manufacturer", text: $manufacturer)
+
+                TextField("Purchase Year", text: $purchaseYear)
+                    .keyboardType(.numberPad)
+                    .disabled(equipment != nil)
+
+                Picker("Equipment Type", selection: $selectedType) {
+                    ForEach(EquipmentType.allCases) { type in
+                        Text(type.rawValue).tag(type)
+                    }
+                }
+                .disabled(equipment != nil)
+            }
+
+            Section(header: Text("Specific Information")) {
+                if selectedType == .laptop {
+                    TextField("Processor", text: $processor)
+                    TextField("RAM", text: $ram)
+                    TextField("Storage", text: $storage)
+                } else if selectedType == .tablet {
+                    TextField("Screen Size", text: $screenSize)
+                    TextField("Battery Capacity", text: $batteryCapacity)
+                    Toggle("Supports Stylus", isOn: $supportsStylus)
+                } else {
+                    TextField("Sensor Resolution", text: $sensorResolution)
+                    TextField("Camera Type", text: $cameraType)
+                    TextField("Video Resolution", text: $videoResolution)
+                }
+            }
+
+            Section {
+                Button(equipment == nil ? "Add Equipment" : "Save Changes") {
+                    saveEquipment()
+                }
+            }
+        }
+        .navigationTitle(equipment == nil ? "Add Equipment" : "Edit Equipment")
+        .alert("Notification", isPresented: $showAlert) {
+            Button("OK") {
+                if shouldDismiss { dismiss() }
+            }
+        } message: {
+            Text(message)
+        }
+    }
+}
+
+// 
+   func saveEquipment() {
+    guard let year = Int(purchaseYear), year > 0 else {
+        message = "Please enter a valid purchase year."
+        showAlert = true
+        return
+    }
+
+    if let equipment = equipment {
+        let result = manager.updateEquipment(
+            equipment, name: name, manufacturer: manufacturer,
+            processor: processor, ram: ram, storage: storage,
+            screenSize: screenSize, batteryCapacity: batteryCapacity,
+            supportsStylus: supportsStylus,
+            sensorResolution: sensorResolution,
+            cameraType: cameraType, videoResolution: videoResolution
+        )
+
+        message = result ?? "Equipment updated successfully!"
+        shouldDismiss = (result == nil)
+
+    } else {
+        let newEquipment: Equipment
+
+        switch selectedType {
+        case .laptop:
+            newEquipment = Laptop(
+                id: id, name: name, manufacturer: manufacturer,
+                purchaseYear: year, processor: processor,
+                ram: ram, storage: storage
+            )
+
+        case .tablet:
+            newEquipment = Tablet(
+                id: id, name: name, manufacturer: manufacturer,
+                purchaseYear: year, screenSize: screenSize,
+                batteryCapacity: batteryCapacity,
+                supportsStylus: supportsStylus
+            )
+
+        case .digitalCamera:
+            newEquipment = DigitalCamera(
+                id: id, name: name, manufacturer: manufacturer,
+                purchaseYear: year, sensorResolution: sensorResolution,
+                cameraType: cameraType, videoResolution: videoResolution
+            )
+        }
+
+        let result = manager.addEquipment(newEquipment)
+        message = result ?? "Equipment added successfully!"
+        shouldDismiss = (result == nil)
+    }
+
+    showAlert = true
+}
+
+//
+import Foundation
+import Combine
+
+class EquipmentManager: ObservableObject {
+    @Published var equipments: [Equipment] = [
+        Laptop(id: "L001", name: "MacBook Pro 14", manufacturer: "Apple",
+               purchaseYear: 2024, processor: "M3", ram: "16GB", storage: "512GB"),
+
+        Tablet(id: "T001", name: "iPad Air", manufacturer: "Apple",
+               purchaseYear: 2023, screenSize: "11 inch",
+               batteryCapacity: "7600 mAh", supportsStylus: true),
+
+        DigitalCamera(id: "C001", name: "Canon EOS R50", manufacturer: "Canon",
+                      purchaseYear: 2024, sensorResolution: "24MP",
+                      cameraType: "Mirrorless", videoResolution: "4K")
+    ]
+
+    @Published var borrowRecords: [BorrowRecord] = []
+}
+
+//
+func findEquipment(id: String) -> Equipment? {
+    equipments.first { $0.id == id }
+}
+
+//
+    func addEquipment(_ equipment: Equipment) -> String? {
+    if equipment.id.trimmingCharacters(in: .whitespaces).isEmpty ||
+       equipment.name.trimmingCharacters(in: .whitespaces).isEmpty ||
+       equipment.manufacturer.trimmingCharacters(in: .whitespaces).isEmpty {
+        return "Please fill in all information."
+    }
+
+    if findEquipment(id: equipment.id) != nil {
+        return "Equipment ID already exists."
+    }
+
+    equipments.append(equipment)
+    return nil
+}
+
+//
+    func updateEquipment(
+    _ equipment: Equipment, name: String, manufacturer: String,
+    processor: String, ram: String, storage: String,
+    screenSize: String, batteryCapacity: String, supportsStylus: Bool,
+    sensorResolution: String, cameraType: String, videoResolution: String
+) -> String? {
+
+    guard findEquipment(id: equipment.id) != nil else {
+        return "Equipment does not exist."
+    }
+
+    if name.trimmingCharacters(in: .whitespaces).isEmpty ||
+       manufacturer.trimmingCharacters(in: .whitespaces).isEmpty {
+        return "Please fill in all information."
+    }
+
+    equipment.name = name
+    equipment.manufacturer = manufacturer
+
+    if let laptop = equipment as? Laptop {
+        laptop.processor = processor
+        laptop.ram = ram
+        laptop.storage = storage
+    } else if let tablet = equipment as? Tablet {
+        tablet.screenSize = screenSize
+        tablet.batteryCapacity = batteryCapacity
+        tablet.supportsStylus = supportsStylus
+    } else if let camera = equipment as? DigitalCamera {
+        camera.sensorResolution = sensorResolution
+        camera.cameraType = cameraType
+        camera.videoResolution = videoResolution
+    }
+
+    return nil
+}
+
+//
+    func borrowEquipment(equipmentID: String, borrowerName: String) -> String? {
+    guard let equipment = findEquipment(id: equipmentID) else {
+        return "Equipment not found."
+    }
+
+    if borrowerName.trimmingCharacters(in: .whitespaces).isEmpty {
+        return "Please enter borrower name."
+    }
+
+    if !equipment.isAvailable {
+        return "Equipment is already borrowed."
+    }
+
+    if borrowRecords.contains(where: {
+        $0.equipmentID == equipmentID && !$0.isReturned
+    }) {
+        return "Equipment already has an active record."
+    }
+
+    borrowRecords.append(BorrowRecord(
+        equipmentID: equipmentID,
+        borrowerName: borrowerName
+    ))
+
+    equipment.isAvailable = false
+    return nil
+}
+
+//
+func returnEquipment(equipmentID: String) -> String? {
+    guard let equipment = findEquipment(id: equipmentID) else {
+        return "Equipment not found."
+    }
+
+    if equipment.isAvailable {
+        return "This equipment has not been borrowed."
+    }
+
+    guard let index = borrowRecords.firstIndex(where: {
+        $0.equipmentID == equipmentID && !$0.isReturned
+    }) else {
+        return "No active borrowing record found."
+    }
+
+    borrowRecords[index].isReturned = true
+    borrowRecords[index].returnDate = Date()
+    equipment.isAvailable = true
+    return nil
+}
+
+
+//
+import SwiftUI
+struct ContentView: View {
+    @StateObject private var manager = EquipmentManager()
+
+    var body: some View {
+        EquipmentListView(manager: manager)
+    }
+}
+#Preview {
+    ContentView()
+}
+
+//
+import SwiftUI
+@main
+struct LibraryEquipmentApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
